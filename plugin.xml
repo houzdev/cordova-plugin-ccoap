@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='utf-8'?>
+<plugin id="cordova-plugin-ccoap" version="1.0.0" 
+    xmlns="http://apache.org/cordova/ns/plugins/1.0" 
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <name>CCoap</name>
+    <js-module name="CCoap" src="www/CCoap.js">
+        <clobbers target="CCoap" />
+    </js-module>
+    <platform name="android">
+        <config-file parent="/*" target="res/xml/config.xml">
+            <feature name="CCoap">
+                <param name="android-package" value="cordova.plugin.ccoap.CCoap" />
+            </feature>
+        </config-file>
+        <config-file parent="/*" target="AndroidManifest.xml">
+            <uses-permission android:name="android.permission.INTERNET" />
+        </config-file>
+        <source-file src="src/android/CCoap.java" target-dir="src/cordova/plugin/ccoap/CCoap" />
+        <source-file src="src/android/CCoapClient.java" target-dir="src/cordova/plugin/ccoap/CCoap" />
+        <source-file src="src/android/CCoapDiscovery.java" target-dir="src/cordova/plugin/ccoap/CCoap" />
+        <source-file src="src/android/CCoapError.java" target-dir="src/cordova/plugin/ccoap/CCoap" />
+        <source-file src="src/android/CCoapException.java" target-dir="src/cordova/plugin/ccoap/CCoap" />
+        <source-file src="src/android/CCoapUtils.java" target-dir="src/cordova/plugin/ccoap/CCoap" />
+        <source-file src="src/android/org/ws4d" target-dir="app/src/main/java/org"/>
+    </platform>
+</plugin>

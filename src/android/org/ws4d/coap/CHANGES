@@ -1,0 +1,9 @@
+Changes applied to jCoAP
+------------------------
+
+
+02/02/2019:
+- Based on commit: 6b0bc794c70f15372f747767e3bbc37e2936a8f6
+- Removed log4j2 dependency.
+- Fixed non UTF-8 characters on some files.
+- Added getOptions() prototype to CoapMessage interface.
