@@ -7,14 +7,14 @@ Plugin to add support for the Constrained Application Protocol [CoAP](https://to
 To add this plugin to your application use:
 
 ```
-    ionic cordova plugin add https://github.com/DKrepsky/cordova-plugin-ccoap.git
+    ionic cordova plugin add https://github.com/houzdev/cordova-plugin-ccoap.git
 ```
 
 To update the plugin you need to first remove the plugin then reinstall:
 
 ```
 ionic cordova plugin rm cordova-plugin-ccoap
-ionic cordova plugin add https://github.com/DKrepsky/cordova-plugin-ccoap.git
+ionic cordova plugin add https://github.com/houzdev/cordova-plugin-ccoap.git
 ```
 
 Plugin interface documentation can be found at [CCoap.js](www/CCoap.js).
