@@ -1,11 +1,34 @@
 {
-  "name": "cordova-plugin-ccoap",
-  "version": "1.0.0",
-  "description": "",
+  "_from": "git+https://github.com/houzdev/cordova-plugin-ccoap.git",
+  "_id": "cordova-plugin-ccoap@0.2.0",
+  "_inBundle": false,
+  "_integrity": "",
+  "_location": "/cordova-plugin-ccoap",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "git",
+    "raw": "https://github.com/houzdev/cordova-plugin-ccoap.git",
+    "rawSpec": "https://github.com/houzdev/cordova-plugin-ccoap.git",
+    "saveSpec": "git+https://github.com/houzdev/cordova-plugin-ccoap.git",
+    "fetchSpec": "https://github.com/houzdev/cordova-plugin-ccoap.git",
+    "gitCommittish": null
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "git+https://github.com/houzdev/cordova-plugin-ccoap.git#20364912ed8b716031406856ad09e8625bc2f6dd",
+  "_spec": "https://github.com/houzdev/cordova-plugin-ccoap.git",
+  "_where": "/home/kr/Projects/personal/houz-tool/ccoap/cordova",
+  "author": "",
+  "bundleDependencies": false,
+  "deprecated": false,
+  "description": "Plugin to add support for the Constrained Application Protocol [CoAP](https://tools.ietf.org/html/rfc7252 \"Coap\") on [Cordova](https://cordova.apache.org/ \"Apache Cordova\") based mobile applications.",
+  "license": "ISC",
   "main": "index.js",
+  "name": "cordova-plugin-ccoap",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC"
+  "version": "0.2.0"
 }

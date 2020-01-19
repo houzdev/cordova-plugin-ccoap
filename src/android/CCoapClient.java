@@ -126,7 +126,7 @@ public class CCoapClient implements CoapClient {
         try {
             method = req.getString("method");
         } catch (JSONException e) {
-            throw new CCoapException("Request method not specified", CCoapError.INVALID_ARGUMENT, e);
+            method = "get";
         }
 
         if (method.equals("get")) {

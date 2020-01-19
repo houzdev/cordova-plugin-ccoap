@@ -23,30 +23,51 @@ Plugin interface documentation can be found at [CCoap.js](www/CCoap.js).
 
 ## Making a request
 
+Using promisses:
+
 ```
     declare var CCoap:any;
 
-    var request = {
-    id: 1,
-    uri: "coap://example.com:5683/api/test&param1=0&param2=testquery",
-    method: "post",
-    payload: "Hello World",
-    options: [
-                {name: "Content-Format", value: "text/plain; charset=utf-8"},
-                {name: "Accept", value: "text/plain; charset=utf-8"},
-                {name: "Accept", value: "application/json"}
-            ]
-}
-
-CCoap.request(
-    request,
-    received => {
-        alert(JSON.stringify(received))
-    },
-    error => {
-        alert(JSON.stringify(error))
+    const req = {
+        id: 1,
+        uri: "coap://example.com:5683/api/test&param1=0&param2=testquery",
+        method: "post",
+        payload: "Hello World",
+        options: [
+            {name: "Content-Format", value: "text/plain; charset=utf-8"},
+            {name: "Accept", value: "text/plain; charset=utf-8"},
+            {name: "Accept", value: "application/json"}
+        ]
     }
-)`
+
+    CCoap.request(req,
+        res => {
+            console.log(res.payload);
+        },
+        error => {
+            console.log(error);
+        }
+    );
+```
+
+Using async/await:
+
+
+```
+    declare var CCoap:any;
+    
+    async function getRequest(){
+        const req = {uri: "coap://example.com:5683/test"};
+
+        try {
+            const res = await CCoap.request(req);
+            
+            console.log(res.code);
+            console.log(res.payload);
+        } catch (error){
+            console.log(error);
+        }
+    }
 ```
 
 ## Discovering devices
@@ -54,20 +75,19 @@ CCoap.request(
 ```
     declare var CCoap:any;
 
-    CCoap.discover(
-        device => {
-            alert("New device found: \n" + JSON.stringfy(device))
-        },
-        error => {
-            alert(JSON.stringfy(error))
+    async function discover (){
+        try {
+            const devices = await CCoap.discover(500);
+            console.log(devices);
+        } catch(error){
+            console.log(error);
         }
-    )
+    } 
 ```
 
 # Limitations
 
 - iOS support not implemented yet;
-- Multicast discovery is not supported on android emulator [more info](https://developer.android.com/studio/run/emulator-networking);
 - Coap server not implemented yet;
 - Observable is not yet implemented;
 - Block transfer not yet implemented;

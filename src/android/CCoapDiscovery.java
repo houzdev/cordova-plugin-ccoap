@@ -17,6 +17,7 @@ import java.net.UnknownHostException;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -29,24 +30,20 @@ import org.json.JSONObject;
  * @author David Krepsky
  */
 public class CCoapDiscovery implements CoapClient {
-    static final int TIMEOUT_MS = 60000;
     private CoapClientChannel channel;
     private CallbackContext callback;
     private Timer timer;
+    private JSONArray devices;
 
     /**
      * Timer task to close the socket after {@link TIMEOUT_MS} seconds.
      */
     private class StopDiscovery extends TimerTask {
-        CoapClientChannel channel_;
-
-        StopDiscovery(CoapClientChannel channel) {
-            this.channel_ = channel;
-        }
 
         @Override
         public void run() {
-            channel_.close();
+            channel.close();
+            callback.success(devices);
         }
     }
 
@@ -57,6 +54,7 @@ public class CCoapDiscovery implements CoapClient {
      */
     public CCoapDiscovery(CallbackContext callbackContext) {
         this.callback = callbackContext;
+        this.devices = new JSONArray();
     }
 
     /**
@@ -64,7 +62,7 @@ public class CCoapDiscovery implements CoapClient {
      * 
      * @throws CCoapException Encapsulated error information.
      */
-    public void start() throws CCoapException {
+    public void start(int timeout) throws CCoapException {
 
         CoapChannelManager manager = BasicCoapChannelManager.getInstance();
 
@@ -90,7 +88,7 @@ public class CCoapDiscovery implements CoapClient {
         timer = new Timer();
 
         try {
-            timer.schedule(new StopDiscovery(channel), TIMEOUT_MS);
+            timer.schedule(new StopDiscovery(), timeout);
         } catch (IllegalArgumentException e) {
             channel.close();
             throw new CCoapException("Cannot start shutdown timer", CCoapError.UNKNOWN, e);
@@ -133,19 +131,19 @@ public class CCoapDiscovery implements CoapClient {
     @Override
     public void onMCResponse(CoapClientChannel channel, CoapResponse response, InetAddress srcAddress, int srcPort) {
 
-        JSONObject res = new JSONObject();
+        JSONObject device = new JSONObject();
         String payload = new String(response.getPayload());
 
         try {
-            res.put("address", srcAddress.getHostAddress());
-            res.put("port", srcPort);
-            res.put("link_format", payload);
+            device.put("address", srcAddress.getHostAddress());
+            device.put("port", srcPort);
+            device.put("resources", payload);
         } catch (JSONException e) {
             callback.error(CCoapUtils.getErrorObject(-1, CCoapError.UNKNOWN, "Cannot create JSON response", e));
             return;
         }
 
-        callback.success(res);
+        this.devices.put(device);
     }
 
     /**

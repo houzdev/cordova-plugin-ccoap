@@ -25,6 +25,17 @@ import org.json.JSONObject;
 public class CCoap extends CordovaPlugin {
 
     /**
+     * Plugin exposed functions.
+     */
+    private static final String API_REQUEST = "request";
+    private static final String API_DISCOVER = "discover";
+
+    /**
+     * Default values.
+     */
+    private static final int DEFAULT_DISCOVER_TIMEOUT_MS = 2000;
+
+    /**
      * Decode and execute native function.
      * 
      * @param action          Native function to be called.
@@ -36,10 +47,10 @@ public class CCoap extends CordovaPlugin {
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
 
-        if (action.equals("request")) {
+        if (action.equals(API_REQUEST)) {
             return this.request(args, callbackContext);
-        } else if (action.equals("discover")) {
-            return this.discover(callbackContext);
+        } else if (action.equals(API_DISCOVER)) {
+            return this.discover(args, callbackContext);
         } else {
             callbackContext.error(CCoapUtils.getErrorObject(CCoapError.INVALID_ACTION, "Invalid action"));
         }
@@ -81,12 +92,20 @@ public class CCoap extends CordovaPlugin {
      * @param callbackContext Javascript's callback.
      * @return True on success, false on error.
      */
-    private boolean discover(CallbackContext callbackContext) {
+    private boolean discover(JSONArray args, CallbackContext callbackContext) {
+
+        int timeout = 0;
+
+        try {
+            timeout = args.getInt(0);
+        } catch (JSONException e) {
+            timeout = DEFAULT_DISCOVER_TIMEOUT_MS;
+        }
 
         CCoapDiscovery discovery = new CCoapDiscovery(callbackContext);
 
         try {
-            discovery.start();
+            discovery.start(timeout);
         } catch (CCoapException e) {
             callbackContext.error(CCoapUtils.getErrorObject(e));
             return false;
