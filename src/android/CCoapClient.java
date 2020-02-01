@@ -222,7 +222,7 @@ public class CCoapClient implements CoapClient {
     /**
      * Get the request content format as mime type.
      * 
-     * If content format is not specified in the request, returns 'unknown';
+     * If content format is not specified in the request, uses as default "text";
      * 
      * @param req Request information.
      * @return Mime type for the content format.
@@ -230,7 +230,7 @@ public class CCoapClient implements CoapClient {
     private CoapMediaType parseContentFormat(JSONObject req) {
         // Try to get content type.
         JSONArray options = null;
-        String contentFormat = "unknown";
+        String contentFormat = CoapMediaType.text_plain.getMimeType();
 
         try {
             options = req.getJSONArray("options");
@@ -252,7 +252,7 @@ public class CCoapClient implements CoapClient {
                     }
                 }
             } catch (JSONException e) {
-                // Content-Format not defined, use default unknown.
+                // Content-Format not defined, use default text_plain.
             }
         }
 
