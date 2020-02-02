@@ -1,8 +1,13 @@
-# Introduction
+# cordova-plugin-ccoap
 
-Plugin to add support for the Constrained Application Protocol [CoAP](https://tools.ietf.org/html/rfc7252 "Coap") on [Cordova](https://cordova.apache.org/ "Apache Cordova") based mobile applications.
+## Introduction
 
-# Usage
+Plugin to add support for the Constrained Application Protocol 
+[CoAP](https://tools.ietf.org/html/rfc7252 "Coap") on 
+[Cordova](https://cordova.apache.org/ "Apache Cordova") based mobile 
+applications.
+
+## Installation
 
 To add this plugin to your application use:
 
@@ -10,16 +15,77 @@ To add this plugin to your application use:
     ionic cordova plugin add https://github.com/houzdev/cordova-plugin-ccoap.git
 ```
 
-To update the plugin you need to first remove the plugin then reinstall:
+To update the plugin you need to remove the plugin and then reinstall:
 
 ```
 ionic cordova plugin rm cordova-plugin-ccoap
 ionic cordova plugin add https://github.com/houzdev/cordova-plugin-ccoap.git
 ```
+## Typescript support
+The plugin comes with defined types, but since these are not published as a npm 
+package you need to manually install them. To do so, add the *types* directory 
+as a as a type root to your *tsconfig.json* and enable the typings by adding 
+CCoap to *types*.
 
-Plugin interface documentation can be found at [CCoap.js](www/CCoap.js).
+Example config:
 
-# Examples
+```js
+//tsconfig.json
+{
+  "compilerOptions": {
+    "typeRoots" : [
+      "./plugins/cordova-plugin-ccoap/types"
+    ],
+    "types": [
+      "CCoap"
+    ],
+  }
+  ```
+  
+## Supported Platforms
+Only the Android platform is supported by now.
+
+## Usage
+
+### Accessing the plugin
+The plugin is automagically loaded into global scope by cordova.
+To access the plugin use the global *CCoap* object after the `deviceready` event.
+
+```js
+document.addEventListener("deviceready", () => {
+    CCoap.get(...).then(...);
+});
+```
+
+### Basic requests
+
+
+## Examples
+#### GET
+```js
+document.addEventListener("deviceready", () => {
+    CCoap.get('coap://example.com/').then(res => {
+        console.log(res);
+    }).catch(err => {
+        console.log(err);
+    });
+});
+```
+
+#### POST
+
+
+#### PUT
+
+#### DELETE
+
+#### OBSERVE
+
+#### Multicast 
+
+#### Binary files
+
+## Examples
 
 ## Making a request
 
