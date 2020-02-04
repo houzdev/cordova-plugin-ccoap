@@ -26,6 +26,8 @@ import org.ws4d.coap.core.enumerations.CoapPacketType;
 import org.ws4d.coap.core.messages.api.CoapMessage;
 import org.ws4d.coap.core.rest.CoapData;
 
+import android.util.Log;
+
 /**
  * @author Christian Lerche <christian.lerche@uni-rostock.de>
  * @author Sebastian Unger <sebastian.unger@uni-rostock.de>
@@ -55,18 +57,18 @@ public abstract class AbstractCoapMessage implements CoapMessage {
 	/* Retransmission State */
 	private int timeout = 0;
 	private int retransmissionCounter = 0;
-	
+
 	public AbstractCoapMessage() {
 		// intended to be empty
 	}
-	
+
 	public AbstractCoapMessage(CoapPacketType packetType, int messageId) {
 		this.version = 1;
 		this.packetType = packetType;
 		this.messageCodeValue = 0;
 		this.messageId = messageId;
 	}
-	
+
 	public AbstractCoapMessage(CoapPacketType packetType, int messageId, int messageCodeValue) {
 		this.version = 1;
 		this.packetType = packetType;
@@ -134,12 +136,12 @@ public abstract class AbstractCoapMessage implements CoapMessage {
 	public int getMessageCodeValue() {
 		return this.messageCodeValue;
 	}
-	
-	protected void setMessageCodeValue(int codeValue){
+
+	protected void setMessageCodeValue(int codeValue) {
 		this.messageCodeValue = codeValue;
 	}
-	
-	public CoapHeaderOptions getOptions(){
+
+	public CoapHeaderOptions getOptions() {
 		return this.options;
 	}
 
@@ -236,7 +238,7 @@ public abstract class AbstractCoapMessage implements CoapMessage {
 	public void setPayload(String payload) {
 		setPayload(payload.toCharArray());
 	}
-	
+
 	public void setPayload(CoapData data) {
 		setPayload(data.getPayload());
 		this.setContentType(data.getMediaType());
@@ -245,16 +247,18 @@ public abstract class AbstractCoapMessage implements CoapMessage {
 	@Override
 	public void setContentType(CoapMediaType mediaType) {
 		CoapHeaderOption option = this.options.getOption(CoapHeaderOptionType.Content_Format);
-		this.options.removeOption(CoapHeaderOptionType.Content_Format);
+
 		if (option != null) {
 			/* content Type MUST only exists once */
 			this.options.removeOption(CoapHeaderOptionType.Content_Format);
-			//throw new IllegalStateException("added content option twice");
 		}
 
 		if (mediaType == CoapMediaType.UNKNOWN) {
-			throw new IllegalStateException("unknown content type");
+			/* If content type is unknown, treat as binary */
+			Log.w("CCoap", "Unknown content type");
+			mediaType = CoapMediaType.octet_stream;
 		}
+
 		/* convert value */
 		byte[] data = long2CoapUint(mediaType.getValue());
 		/* no need to check result, mediaType is safe */
@@ -265,11 +269,14 @@ public abstract class AbstractCoapMessage implements CoapMessage {
 	@Override
 	public CoapMediaType getContentType() {
 		CoapHeaderOption option = this.options.getOption(CoapHeaderOptionType.Content_Format);
+
 		if (option == null)
 			return CoapMediaType.UNKNOWN;
+
 		/* no need to check length, CoapMediaType parse function will do */
 		int mediaTypeCode = (int) coapUint2Long(
 				this.options.getOption(CoapHeaderOptionType.Content_Format).getOptionData());
+
 		return CoapMediaType.parse(mediaTypeCode);
 	}
 
@@ -315,9 +322,12 @@ public abstract class AbstractCoapMessage implements CoapMessage {
 	@Override
 	public CoapBlockOption getBlock2() {
 		CoapHeaderOption option = this.options.getOption(CoapHeaderOptionType.Block2);
+
 		if (option == null) {
+			Log.e("CCoap", "Option is null");
 			return null;
 		}
+
 		CoapBlockOption blockOpt = new CoapBlockOption(option.getOptionData());
 		return blockOpt;
 	}
@@ -386,7 +396,8 @@ public abstract class AbstractCoapMessage implements CoapMessage {
 		if (this.timeout == 0) {
 			Random random = new Random();
 			this.timeout = CoapConstants.RESPONSE_TIMEOUT_MS
-					+ random.nextInt((int) (CoapConstants.RESPONSE_TIMEOUT_MS * CoapConstants.RESPONSE_RANDOM_FACTOR) - CoapConstants.RESPONSE_TIMEOUT_MS);
+					+ random.nextInt((int) (CoapConstants.RESPONSE_TIMEOUT_MS * CoapConstants.RESPONSE_RANDOM_FACTOR)
+							- CoapConstants.RESPONSE_TIMEOUT_MS);
 		}
 		return this.timeout;
 	}

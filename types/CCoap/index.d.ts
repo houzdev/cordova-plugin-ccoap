@@ -2,14 +2,14 @@
 
 interface CCoapOption {
     name: string;
-    value: string | number;
+    value: string | number | Array;
 }
 
 interface CCoapRequest {
     id?: number;
     method?: string;
     uri: string;
-    payload?: string | Uint8Array;
+    payload?: string | Array;
     options?: CCoapOption[];
     confirmable?: boolean;
 }
@@ -17,7 +17,7 @@ interface CCoapRequest {
 interface CCoapResponse {
     id: number;
     code: number;
-    payload: string | Uint8Array;
+    payload: string | Array;
     options: CCoapOption[];
 }
 

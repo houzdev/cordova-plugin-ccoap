@@ -14,6 +14,7 @@ import org.ws4d.coap.core.connection.api.CoapClientChannel;
 import org.ws4d.coap.core.enumerations.CoapHeaderOptionType;
 import org.ws4d.coap.core.enumerations.CoapMediaType;
 import org.ws4d.coap.core.enumerations.CoapRequestCode;
+import org.ws4d.coap.core.enumerations.CoapBlockSize;
 import org.ws4d.coap.core.messages.CoapHeaderOption;
 import org.ws4d.coap.core.messages.CoapHeaderOptions;
 import org.ws4d.coap.core.messages.api.CoapRequest;
@@ -29,6 +30,9 @@ import java.net.URI;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.Channel;
+import java.util.Random;
+
+import android.util.Log;
 
 /**
  * CCoapClient
@@ -40,8 +44,12 @@ import java.nio.channels.Channel;
  */
 public class CCoapClient implements CoapClient {
 
-    private int id;
+    private JSONObject jreq = null;
     private CallbackContext callback;
+    private URI uri;
+    private CoapRequest request = null;
+    private CoapClientChannel channel = null;
+    private Random tokenGenerator = null;
 
     /**
      * Create and send a request.
@@ -50,28 +58,24 @@ public class CCoapClient implements CoapClient {
      * @param callbackContext Javascript received and error callbacks.
      * @throws CCoapException Thrown at any error {@link CCoapException}.
      */
-    public void request(JSONObject req, CallbackContext callbackContext) throws CCoapException {
+    public void request(final JSONObject req, final CallbackContext callbackContext) throws CCoapException {
 
-        this.id = req.optInt("id", -1);
+        Log.v("CCoap", "Request");
+
+        this.jreq = req;
         this.callback = callbackContext;
 
-        CoapClientChannel channel = null;
-        CoapRequest request = null;
-
         try {
-            channel = createChannel(req);
-
-            request = createRequest(req, channel);
-
-            if (null == channel || null == request) {
-                throw new CCoapException("Unknown error", CCoapError.UNKNOWN);
-            }
-
-            channel.sendMessage(request);
-
-        } catch (CCoapException e) {
-            if (null != channel) {
-                channel.close();
+            createURI();
+            createChannel();
+            createRequest();
+            appendOptions();
+            appendQuery();
+            appendPayload();
+            this.channel.sendMessage(this.request);
+        } catch (final CCoapException e) {
+            if (null != this.channel) {
+                this.channel.close();
             }
 
             throw e;
@@ -79,333 +83,153 @@ public class CCoapClient implements CoapClient {
     }
 
     /**
-     * Parse the server address and return a CoapChannel connected to the server;
+     * Create a java URI object from the request json.
      * 
-     * @param req Request information.
-     * @return Chanel used to send the request.
+     * @throws CCoapException Thrown when the uri is missing in json request.
+     */
+    private void createURI() throws CCoapException {
+        try {
+            this.uri = URI.create(this.jreq.getString("uri"));
+        } catch (final JSONException e) {
+            throw new CCoapException("URI is missing", CCoapError.INVALID_ARGUMENT, e);
+        }
+    }
+
+    /**
+     * Parse the server address and creates a CoapChannel connected to the server;
      * 
      * @throws CCoapException Thrown at any error {@link CCoapException}.
      */
-    private CoapClientChannel createChannel(JSONObject req) throws CCoapException {
+    private void createChannel() throws CCoapException {
 
-        URI uri;
-
-        try {
-            uri = URI.create(req.getString("uri"));
-        } catch (JSONException e) {
-            throw new CCoapException("URI is missing", CCoapError.INVALID_ARGUMENT, e);
-        }
-
-        CoapChannelManager manager = BasicCoapChannelManager.getInstance();
+        final CoapChannelManager manager = BasicCoapChannelManager.getInstance();
 
         InetAddress addr;
 
         try {
-            addr = InetAddress.getByName(uri.getHost());
-        } catch (UnknownHostException e) {
+            addr = InetAddress.getByName(this.uri.getHost());
+        } catch (final UnknownHostException e) {
             throw new CCoapException("Invalid server address", CCoapError.DESTINATION_IS_UNREACHABLE, e);
         }
 
-        int port = uri.getPort();
+        final int port = this.uri.getPort();
 
-        return manager.connect(this, addr, port);
+        this.channel = manager.connect(this, addr, port);
+
+        this.channel.setMaxReceiveBlocksize(CoapBlockSize.BLOCK_1024);
+        this.channel.setMaxSendBlocksize(CoapBlockSize.BLOCK_1024);
     }
 
     /**
-     * Parse the request method.
-     * 
-     * @param req Request information.
-     * @return Type of request.
-     * 
-     * @throws CCoapException Thrown when the method is invalid or not specified.
+     * Create a {@link CoapRequest} object from the request information.
      */
-    private CoapRequestCode parseCode(JSONObject req) throws CCoapException {
+    private void createRequest() {
 
-        String method;
+        String path = this.uri.getPath();
 
-        try {
-            method = req.getString("method");
-        } catch (JSONException e) {
-            method = "get";
-        }
-
-        if (method.equals("get")) {
-            return CoapRequestCode.GET;
-        } else if (method.equals("post")) {
-            return CoapRequestCode.POST;
-        } else if (method.equals("put")) {
-            return CoapRequestCode.PUT;
-        } else if (method.equals("delete")) {
-            return CoapRequestCode.DELETE;
-        } else {
-            throw new CCoapException("Invalid Request Method", CCoapError.INVALID_ARGUMENT);
-        }
-    }
-
-    /**
-     * Return the requested resource path.
-     * 
-     * @param req Request information.
-     * @return Resource path.
-     * @throws CCoapException Thrown when URI is missing.
-     */
-    private String parsePath(JSONObject req) throws CCoapException {
-        URI uri;
-
-        try {
-            uri = URI.create(req.getString("uri"));
-        } catch (JSONException e) {
-            throw new CCoapException("URI is missing", CCoapError.INVALID_ARGUMENT, e);
-        }
-
-        String path = uri.getPath();
-
-        if (path == null) {
+        if (path == null || path.isEmpty())
             path = "/";
-        } else if (path.isEmpty()) {
-            path = "/";
-        }
 
-        return path;
-    }
+        final CoapRequestCode code = CoapRequestCode.parse(this.jreq.optString("method", "get"));
 
-    /**
-     * Return if the message is confirmable or not.
-     * 
-     * If 'confirmable' is not present, returns true.
-     * 
-     * @param req Request information.
-     * @return True if the message is confirmable, false otherwise.
-     */
-    private boolean parseConfirmable(JSONObject req) {
-        boolean confirmable;
+        final boolean confirmable = this.jreq.optBoolean("confirmable", true);
 
-        try {
-            confirmable = req.getBoolean("confirmable");
-        } catch (JSONException e) {
-            confirmable = true;
-        }
-
-        return confirmable;
-    }
-
-    /**
-     * Translate a mime type string to a {@link CoapMediaType}.
-     * 
-     * For valid media types, check RFC-7252.
-     * 
-     * If mime type is not known, returns CoapMediaType.UNKNOWN.
-     * 
-     * @param mediaType Mime type string.
-     * @return CoapMediaType value.
-     */
-    private CoapMediaType stringToMediaType(String mediaType) {
-        if (mediaType.equals(CoapMediaType.text_plain.getMimeType())) {
-            return CoapMediaType.text_plain;
-        } else if (mediaType.equals(CoapMediaType.link_format.getMimeType())) {
-            return CoapMediaType.link_format;
-        } else if (mediaType.equals(CoapMediaType.xml.getMimeType())) {
-            return CoapMediaType.xml;
-        } else if (mediaType.equals(CoapMediaType.octet_stream.getMimeType())) {
-            return CoapMediaType.octet_stream;
-        } else if (mediaType.equals(CoapMediaType.exi.getMimeType())) {
-            return CoapMediaType.exi;
-        } else if (mediaType.equals(CoapMediaType.json.getMimeType())) {
-            return CoapMediaType.json;
-        } else if (mediaType.equals("application/cbor")) {
-            return CoapMediaType.parse(60);
-        } else {
-            return CoapMediaType.UNKNOWN;
-        }
-    }
-
-    /**
-     * Get the request content format as mime type.
-     * 
-     * If content format is not specified in the request, uses as default "text";
-     * 
-     * @param req Request information.
-     * @return Mime type for the content format.
-     */
-    private CoapMediaType parseContentFormat(JSONObject req) {
-        // Try to get content type.
-        JSONArray options = null;
-        String contentFormat = CoapMediaType.text_plain.getMimeType();
-
-        try {
-            options = req.getJSONArray("options");
-        } catch (JSONException e) {
-            options = null;
-        }
-
-        if (null != options) {
-            JSONObject option = null;
-
-            try {
-                for (int i = 0; i < options.length(); i++) {
-                    option = options.getJSONObject(i);
-
-                    String name = option.getString("name");
-
-                    if (name.equals("Content-Format")) {
-                        contentFormat = option.getString("value");
-                    }
-                }
-            } catch (JSONException e) {
-                // Content-Format not defined, use default text_plain.
-            }
-        }
-
-        return stringToMediaType(contentFormat);
-    }
-
-    /**
-     * Transform the request payload into a {@link CoapData} object.
-     * 
-     * @param req Request information
-     * @return CoapData object when the payload is present and valid. *null*
-     *         otherwise.
-     */
-    private CoapData parsePayload(JSONObject req) {
-
-        if (req.has("payload") == false) {
-            return null;
-        }
-
-        CoapData data = null;
-
-        CoapMediaType type = parseContentFormat(req);
-
-        JSONArray dataArray = null;
-        String dataString = null;
-
-        // Get payload if exist;
-        dataArray = req.optJSONArray("payload");
-        dataString = req.optString("payload");
-
-        if (null != dataArray) {
-            data = new CoapData(CCoapUtils.jarray2barray(dataArray), type);
-        } else if (null != dataString) {
-            data = new CoapData(dataString, type);
-        }
-
-        return data;
+        this.request = this.channel.createRequest(code, path, confirmable);
     }
 
     /**
      * Append the request options to a {@link CoapRequest} object.
      * 
-     * @param req     Request information.
-     * @param request CoapRequest object.
      * @throws CCoapException Thrown when an invalid option is found.
      */
-    private void appendOptions(JSONObject req, CoapRequest request) throws CCoapException {
+    private void appendOptions() throws CCoapException {
 
-        if (req.has("options") == false) {
+        final JSONArray options = this.jreq.optJSONArray("options");
+
+        if (null == options)
             return;
-        }
-
-        JSONArray options = null;
-
-        try {
-            options = req.getJSONArray("options");
-        } catch (JSONException e) {
-            throw new CCoapException("Invalid option", CCoapError.INVALID_ARGUMENT, e);
-        }
-
-        JSONObject option = null;
-        String name;
 
         try {
             for (int i = 0; i < options.length(); i++) {
-                option = options.getJSONObject(i);
-
-                name = option.getString("name");
+                final JSONObject option = options.getJSONObject(i);
+                final String name = option.getString("name");
 
                 if (name.equals("Accept")) {
-                    String value = option.getString("value");
-
-                    request.addAccept(stringToMediaType(value));
+                    final String mimeType = option.getString("value");
+                    this.request.addAccept(CoapMediaType.parse(mimeType));
                 } else if (name.equals("Content-Format")) {
-                    String value = option.getString("value");
-
-                    request.setContentType(stringToMediaType(value));
+                    final String mimeType = option.getString("value");
+                    this.request.setContentType(CoapMediaType.parse(mimeType));
                 } else if (name.equals("ETag")) {
-                    byte[] value = CCoapUtils.jarray2barray(option.getJSONArray("value"));
-
-                    request.addETag(value);
+                    final byte[] value = CCoapUtils.jarray2barray(option.getJSONArray("value"));
+                    this.request.addETag(value);
                 } else if (name.equals("If-None-Match")) {
-                    boolean value = option.getBoolean("value");
-
-                    request.setIfNoneMatchOption(value);
+                    final boolean value = option.getBoolean("value");
+                    this.request.setIfNoneMatchOption(value);
                 } else if (name.equals("If-Match")) {
-                    byte[] value = CCoapUtils.jarray2barray(option.getJSONArray("value"));
-
-                    request.addIfMatchOption(value);
+                    final byte[] value = CCoapUtils.jarray2barray(option.getJSONArray("value"));
+                    this.request.addIfMatchOption(value);
                 } else {
                     throw new CCoapException("Unknown option", CCoapError.INVALID_ARGUMENT);
                 }
             }
-        } catch (JSONException e) {
+        } catch (final JSONException e) {
             throw new CCoapException("Malformed option", CCoapError.UNKNOWN, e);
         }
     }
 
     /**
      * Append the URI query to a {@link CoapRequest} object.
-     * 
-     * @param req     Request information.
-     * @param request CoapRequest object.
-     * @throws CCoapException Thrown if URI is missing.
      */
-    private void appendQuery(JSONObject req, CoapRequest request) throws CCoapException {
-        URI uri;
+    private void appendQuery() {
 
-        try {
-            uri = URI.create(req.getString("uri"));
-        } catch (JSONException e) {
-            throw new CCoapException("URI is missing", CCoapError.INVALID_ARGUMENT, e);
-        }
+        final String query = this.uri.getQuery();
 
-        String query = uri.getQuery();
-
-        if (null != query) {
-            if (!query.isEmpty()) {
-                request.setUriQuery(query);
-            }
+        if (null != query && !query.isEmpty()) {
+            this.request.setUriQuery(query);
         }
     }
 
-    /**
-     * Create a {@link CoapRequest} object from the request information and a client
-     * channel {@link CoapClientChannel}.
-     * 
-     * @param req     Request information.
-     * @param channel Client channel.
-     * @return CoapRequest object.
-     * @throws CCoapException Thrown at any error.
-     */
-    private CoapRequest createRequest(JSONObject req, CoapClientChannel channel) throws CCoapException {
+    private void appendPayload() throws CCoapException {
 
-        CoapRequestCode code = parseCode(req);
+        final boolean hasPayload = this.jreq.has("payload");
+        final boolean isPostPut = (request.getRequestCode() == CoapRequestCode.PUT)
+                || (request.getRequestCode() == CoapRequestCode.POST);
 
-        String path = parsePath(req);
-
-        boolean confirmable = parseConfirmable(req);
-
-        CoapData payload = parsePayload(req);
-
-        CoapRequest request = channel.createRequest(code, path, confirmable);
-
-        if (null != payload) {
-            request.setPayload(payload);
+        if ((hasPayload == false) || (isPostPut == false)) {
+            return;
         }
 
-        appendOptions(req, request);
+        CoapMediaType type = this.request.getContentType();
 
-        appendQuery(req, request);
+        byte[] raw;
 
-        return request;
+        final Object payload = this.jreq.opt("payload");
+
+        if (payload instanceof String) {
+            raw = Encoder.StringToByte((String) payload);
+            if (type == null)
+                type = CoapMediaType.text_plain;
+        } else if (payload instanceof JSONArray) {
+            raw = CCoapUtils.jarray2barray((JSONArray) payload);
+            if (type == null)
+                type = CoapMediaType.octet_stream;
+        } else if (payload instanceof JSONObject) {
+            raw = Encoder.StringToByte(((JSONObject) payload).toString());
+            if (type == null)
+                type = CoapMediaType.json;
+        } else {
+            throw new CCoapException("Invalid payload format", CCoapError.INVALID_ARGUMENT);
+        }
+
+        final CoapData data = new CoapData(raw, type);
+
+        this.request.setPayload(data);
+
+        if (raw.length > 1024) {
+            Log.v("CCoap", "Init block1 transfer");
+            this.request = this.channel.addBlockContext(this.request);
+        }
     }
 
     /**
@@ -418,22 +242,25 @@ public class CCoapClient implements CoapClient {
      * @return JSONArray with options.
      * @throws JSONException Thown if fails to inser a new option into the array.
      */
-    private JSONArray extractOptions(CoapResponse response) throws JSONException {
-        JSONArray opts = new JSONArray();
+    private JSONArray extractOptions(final CoapResponse response) throws JSONException {
+        final JSONArray opts = new JSONArray();
 
-        CoapHeaderOptions options = response.getOptions();
+        final CoapHeaderOptions options = response.getOptions();
 
         JSONObject opt = null;
 
-        for (CoapHeaderOption option : options) {
-            CoapHeaderOptionType type = option.getOptionType();
+        for (final CoapHeaderOption option : options) {
+            final CoapHeaderOptionType type = option.getOptionType();
 
             if (type == CoapHeaderOptionType.Content_Format) {
                 opt = new JSONObject();
 
-                int number = (int) option.getOptionData()[0];
+                int number = 0;
+                if (option.getOptionData().length > 0) {
+                    number = (int) option.getOptionData()[0];
+                }
 
-                CoapMediaType contentType = CoapMediaType.parse(number);
+                final CoapMediaType contentType = CoapMediaType.parse(number);
 
                 opt.put("name", "Content-Format");
                 opt.put("value", contentType.getMimeType());
@@ -441,7 +268,7 @@ public class CCoapClient implements CoapClient {
             } else if (type == CoapHeaderOptionType.Size1) {
                 opt = new JSONObject();
 
-                byte[] data = option.getOptionData();
+                final byte[] data = option.getOptionData();
 
                 int size1 = 0;
 
@@ -456,7 +283,7 @@ public class CCoapClient implements CoapClient {
             } else if (type == CoapHeaderOptionType.Etag) {
                 opt = new JSONObject();
 
-                JSONArray etag = CCoapUtils.barray2jarray(option.getOptionData());
+                final JSONArray etag = CCoapUtils.barray2jarray(option.getOptionData());
 
                 opt.put("name", "Etag");
                 opt.put("value", etag);
@@ -464,7 +291,7 @@ public class CCoapClient implements CoapClient {
             } else if (type == CoapHeaderOptionType.Location_Path) {
                 opt = new JSONObject();
 
-                String locationPath = new String(option.getOptionData());
+                final String locationPath = new String(option.getOptionData());
 
                 opt.put("name", "Location-Path");
                 opt.put("value", locationPath);
@@ -472,7 +299,7 @@ public class CCoapClient implements CoapClient {
             } else if (type == CoapHeaderOptionType.Location_Query) {
                 opt = new JSONObject();
 
-                String locationQuery = new String(option.getOptionData());
+                final String locationQuery = new String(option.getOptionData());
 
                 opt.put("name", "Location-Query");
                 opt.put("value", locationQuery);
@@ -480,7 +307,7 @@ public class CCoapClient implements CoapClient {
             } else if (type == CoapHeaderOptionType.Max_Age) {
                 opt = new JSONObject();
 
-                byte[] data = option.getOptionData();
+                final byte[] data = option.getOptionData();
 
                 int maxAge = 0;
 
@@ -495,8 +322,8 @@ public class CCoapClient implements CoapClient {
             } else if (type == CoapHeaderOptionType.Accept) {
                 opt = new JSONObject();
 
-                int number = (int) option.getOptionData()[0];
-                CoapMediaType accept = CoapMediaType.parse(number);
+                final int number = (int) option.getOptionData()[0];
+                final CoapMediaType accept = CoapMediaType.parse(number);
 
                 opt.put("name", "Accept");
                 opt.put("value", accept.getMimeType());
@@ -512,6 +339,27 @@ public class CCoapClient implements CoapClient {
     }
 
     /**
+     * Create a new message token with @p size bytes.
+     * 
+     * TODO: Add token to request.
+     * 
+     * @param size Length of the token.
+     * @return New random token.
+     */
+    private byte[] createToken(final int size) {
+
+        if (this.tokenGenerator == null) {
+            this.tokenGenerator = new Random();
+        }
+
+        final byte[] token = new byte[size];
+
+        this.tokenGenerator.nextBytes(token);
+
+        return token;
+    }
+
+    /**
      * Coap client callback on failed requests.
      * 
      * If the server is not found, calls the javascript error callback with error
@@ -524,15 +372,18 @@ public class CCoapClient implements CoapClient {
      * @param resetByServer The server sent a connection reset.
      */
     @Override
-    public void onConnectionFailed(CoapClientChannel channel, boolean notReachable, boolean resetByServer) {
+    public void onConnectionFailed(final CoapClientChannel channel, final boolean notReachable,
+            final boolean resetByServer) {
+        Log.e("CCoap", "Connection Failed");
+
         if (notReachable) {
-            callback.error(CCoapUtils.getErrorObject(this.id, CCoapError.DESTINATION_IS_UNREACHABLE,
-                    "Destination is unreachable"));
+            this.callback.error(
+                    CCoapUtils.getErrorObject(-1, CCoapError.DESTINATION_IS_UNREACHABLE, "Destination is unreachable"));
         } else {
-            callback.error(CCoapUtils.getErrorObject(this.id, CCoapError.CONNECTION_FAILED, "Connection Failed"));
+            this.callback.error(CCoapUtils.getErrorObject(-1, CCoapError.CONNECTION_FAILED, "Connection Failed"));
         }
 
-        channel.close();
+        this.channel.close();
     }
 
     /**
@@ -549,54 +400,58 @@ public class CCoapClient implements CoapClient {
      * @param response The {@link CoapResponse} that was received.
      */
     @Override
-    public void onResponse(CoapClientChannel channel, CoapResponse response) {
+    public void onResponse(final CoapClientChannel channel, final CoapResponse response) {
 
-        // Send response to javascript side.
-        JSONObject res = new JSONObject();
-
-        int mcode = response.getResponseCode().getValue();
-        int code = ((mcode >> 5) * 100) | (mcode & 0x1F);
-
-        String payloadString = null;
-        JSONArray payloadRaw = null;
-
-        boolean isBinary = (response.getContentType() == CoapMediaType.UNKNOWN)
-                || (response.getContentType() == CoapMediaType.octet_stream)
-                || (response.getContentType() == CoapMediaType.exi);
-
-        if (isBinary) {
-            payloadRaw = CCoapUtils.barray2jarray(response.getPayload());
-        } else {
-            payloadString = new String(response.getPayload());
-        }
-
-        JSONArray options = null;
-        try {
-            options = extractOptions(response);
-        } catch (JSONException e) {
-            callback.error(CCoapUtils.getErrorObject(this.id, CCoapError.UNKNOWN, "Error parsing options"));
-        }
+        Log.v("CCoap", "Received");
 
         try {
-            res.put("id", this.id);
-            res.put("code", code);
+            final JSONObject jres = new JSONObject();
 
-            if (isBinary) {
-                res.put("payload", payloadRaw);
-            } else {
-                res.put("payload", payloadString);
+            // Append response code.
+            final int mcode = response.getResponseCode().getValue();
+            final int code = ((mcode >> 5) * 100) | (mcode & 0x1F);
+            jres.put("code", code);
+
+            // Append payload, if exists.
+            final boolean hasPayload = response.getPayload() != null;
+
+            if (hasPayload) {
+                Object payload = null;
+                final CoapMediaType type = response.getContentType();
+
+                final boolean isString = (type == CoapMediaType.text_plain) || (type == CoapMediaType.xml)
+                        || (type == CoapMediaType.link_format);
+                final boolean isJson = (type == CoapMediaType.json);
+
+                /// TODO: Parse json as object in furute versions.
+                if (isString || isJson) {
+                    payload = Encoder.ByteToString(response.getPayload());
+                    jres.put("payload", (String) payload);
+                }
+                /// NOTE: Removed to keep compactible with v0.2.0.
+                // else if (isJson) {
+                // payload = new JSONObject(Encoder.ByteToString(response.getPayload()));
+                // jres.put("payload", (JSONObject) payload);
+                // }
+                else {
+                    payload = CCoapUtils.barray2jarray(response.getPayload());
+                    jres.put("payload", (JSONArray) payload);
+                }
             }
+
+            // Append options.
+            final JSONArray options = extractOptions(response);
 
             if (null != options) {
-                res.put("options", options);
+                jres.put("options", options);
             }
 
-            callback.success(res);
-        } catch (JSONException e) {
-            callback.error(CCoapUtils.getErrorObject(this.id, CCoapError.UNKNOWN, "Cannot create response JSON"));
+            this.callback.success(jres);
+        } catch (final JSONException e) {
+            this.callback.error(CCoapUtils.getErrorObject(-1, CCoapError.UNKNOWN, "Cannot create response JSON"));
+        } finally {
+            this.channel.close();
         }
-
-        channel.close();
     }
 
     /**
@@ -607,8 +462,9 @@ public class CCoapClient implements CoapClient {
      * This callback reports an erro and closes the connection.
      */
     @Override
-    public void onMCResponse(CoapClientChannel channel, CoapResponse response, InetAddress srcAddress, int srcPort) {
-        callback.error(
-                CCoapUtils.getErrorObject(this.id, CCoapError.INVALID_TRANSPORT, "Received a multicast response"));
+    public void onMCResponse(final CoapClientChannel channel, final CoapResponse response, final InetAddress srcAddress,
+            final int srcPort) {
+        this.callback
+                .error(CCoapUtils.getErrorObject(-1, CCoapError.INVALID_TRANSPORT, "Received a multicast response"));
     }
 }

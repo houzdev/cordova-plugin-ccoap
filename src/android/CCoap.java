@@ -75,9 +75,8 @@ public class CCoap extends CordovaPlugin {
             return false;
         }
 
-        CCoapClient client = new CCoapClient();
-
         try {
+            CCoapClient client = new CCoapClient();
             client.request(req, callbackContext);
         } catch (CCoapException e) {
             callbackContext.error(CCoapUtils.getErrorObject(e));

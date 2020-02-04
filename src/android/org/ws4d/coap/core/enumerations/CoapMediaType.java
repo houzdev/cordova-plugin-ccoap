@@ -22,14 +22,14 @@ package org.ws4d.coap.core.enumerations;
  * @author Christian Lerche <christian.lerche@uni-rostock.de>
  */
 public enum CoapMediaType {
-	text_plain(0, "text/plain; charset=utf-8"),
-	link_format(40, "application/link-format"),
-	xml(41, "application/xml"),
-	octet_stream(42, "application/octet-stream"),
-	exi(47, "application/exi"),
-	json(50, "application/json"),
-	
-	//additional
+
+	text_plain(0, "text/plain; charset=utf-8"), // Plain Text.
+	link_format(40, "application/link-format"), // Core-Link format.
+	xml(41, "application/xml"), // XML.
+	octet_stream(42, "application/octet-stream"), // Binary.
+	exi(47, "application/exi"), // Binary XML.
+	json(50, "application/json"), // JSON.
+	cbor(60, "application/cbor"), // Binary JSON.
 	UNKNOWN(-1, "");
 
 	private int mediaType;
@@ -46,19 +46,38 @@ public enum CoapMediaType {
 	 *         UNKNOWN, if the media type code is not known.
 	 */
 	public static CoapMediaType parse(int mediaType) {
-		for(CoapMediaType t : CoapMediaType.values()){
-			if(t.getValue() == mediaType) return t;
+		for (CoapMediaType t : CoapMediaType.values()) {
+			if (t.getValue() == mediaType)
+				return t;
 		}
+		return UNKNOWN;
+	}
+
+	/**
+	 * @param mimeType The mime type of the media type.
+	 * @return The enum element matching the mime type. <br>
+	 *         UNKNOWN, if the mime type is not known.
+	 */
+	public static CoapMediaType parse(String mimeType) {
+		for (CoapMediaType t : CoapMediaType.values()) {
+			if (t.getMimeType().equals(mimeType))
+				return t;
+		}
+
 		return UNKNOWN;
 	}
 
 	/**
 	 * @return The media type code of the ENUM element.
 	 */
-	public int getValue() {return this.mediaType;}
+	public int getValue() {
+		return this.mediaType;
+	}
 
 	/**
 	 * @return The mime type code of respective coapMediaType.
 	 */
-	public String getMimeType() {return this.mimeType;}
+	public String getMimeType() {
+		return this.mimeType;
+	}
 }

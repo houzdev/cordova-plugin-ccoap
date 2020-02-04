@@ -42,8 +42,8 @@ public class BasicCoapRequest extends AbstractCoapMessage implements CoapRequest
 	public BasicCoapRequest(byte[] bytes, int length, int offset) {
 		deserialize(bytes, length, offset);
 		/*
-		 * check if request code is valid, this function throws an error in case
-		 * of an invalid argument
+		 * check if request code is valid, this function throws an error in case of an
+		 * invalid argument
 		 */
 		this.requestCode = CoapRequestCode.parse(this.getMessageCodeValue());
 	}
@@ -185,8 +185,8 @@ public class BasicCoapRequest extends AbstractCoapMessage implements CoapRequest
 
 		if (value.length < 0 || value.length > 2) {
 			/*
-			 * should never happen because this is an internal variable and
-			 * should be checked during serialization
+			 * should never happen because this is an internal variable and should be
+			 * checked during serialization
 			 */
 			throw new IllegalStateException("Illegal Uri-Port Option length");
 		}
@@ -342,8 +342,8 @@ public class BasicCoapRequest extends AbstractCoapMessage implements CoapRequest
 
 	@Override
 	public boolean equals(Object object) {
-		
-		if(!(object instanceof CoapRequest)){
+
+		if (!(object instanceof CoapRequest)) {
 			return false;
 		}
 		CoapRequest other = (CoapRequest) object;
@@ -352,38 +352,37 @@ public class BasicCoapRequest extends AbstractCoapMessage implements CoapRequest
 		 * 
 		 * 1. the presented request methods match,
 		 * 
-		 * 2. all options match between both requests (which includes the
-		 * request URI), except that there is no need for a match of any request
-		 * options marked as NoCacheKey (Section 5.4) or recognized by the Cache
-		 * and fully interpreted with respect to its specified cache behavior
-		 * (such as the ETag request option described in Section 5.10.6; see
-		 * also Section 5.4.2), and
+		 * 2. all options match between both requests (which includes the request URI),
+		 * except that there is no need for a match of any request options marked as
+		 * NoCacheKey (Section 5.4) or recognized by the Cache and fully interpreted
+		 * with respect to its specified cache behavior (such as the ETag request option
+		 * described in Section 5.10.6; see also Section 5.4.2), and
 		 */
-		
+
 		this.requestCode.equals(other.getRequestCode());
-		
+
 		// all options of this request are present in the other request?
 		Iterator<CoapHeaderOption> it = this.getOptions().iterator();
-		while(it.hasNext()){
+		while (it.hasNext()) {
 			CoapHeaderOption opt = it.next();
 			// noCacheKey options can be ignored
-			if(!opt.isNoCacheKey()){
+			if (!opt.isNoCacheKey()) {
 				// option existent and equal?
 				CoapHeaderOption otherOpt = other.getOptions().getOption(opt.getOptionTypeValue());
-				if(null == otherOpt || !opt.getOptionData().equals(otherOpt.getOptionData())){
+				if (null == otherOpt || !opt.getOptionData().equals(otherOpt.getOptionData())) {
 					return false;
 				}
 			}
 		}
 		// all options of the other request are present in this request?
 		it = other.getOptions().iterator();
-		while(it.hasNext()){
+		while (it.hasNext()) {
 			CoapHeaderOption opt = it.next();
 			// noCacheKey options can be ignored
-			if(!opt.isNoCacheKey()){
+			if (!opt.isNoCacheKey()) {
 				// option existent and equal?
 				CoapHeaderOption myOpt = this.getOptions().getOption(opt.getOptionTypeValue());
-				if(null == myOpt || !opt.getOptionData().equals(myOpt.getOptionData())){
+				if (null == myOpt || !opt.getOptionData().equals(myOpt.getOptionData())) {
 					return false;
 				}
 			}

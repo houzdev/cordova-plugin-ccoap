@@ -22,19 +22,26 @@ package org.ws4d.coap.core.enumerations;
  * @author Christian Lerche <christian.lerche@uni-rostock.de>
  */
 public enum CoapRequestCode {
-	GET(1), 
-	POST(2),
-	PUT(3),
-	DELETE(4);
+	GET(1, "get"), POST(2, "post"), PUT(3, "put"), DELETE(4, "delete");
 
 	private int code;
+	private String method;
 
-	private CoapRequestCode(int code) {	this.code = code;}
+	private CoapRequestCode(int code, String method) {
+		this.code = code;
+		this.method = method;
+	}
 
 	/**
 	 * @return The method code of the ENUM element.
 	 */
-	public int getValue() {	return this.code;}
+	public int getValue() {
+		return this.code;
+	}
+
+	public String getMethod() {
+		return this.method;
+	}
 
 	/**
 	 * @param codeValue the method code for the request code.
@@ -42,9 +49,24 @@ public enum CoapRequestCode {
 	 * @throws IllegalArgumentException, if codeValue is out of range.
 	 */
 	public static CoapRequestCode parse(int codeValue) {
-		for(CoapRequestCode t : CoapRequestCode.values()){
-			if(t.getValue() == codeValue) return t;
+		for (CoapRequestCode t : CoapRequestCode.values()) {
+			if (t.getValue() == codeValue)
+				return t;
 		}
 		throw new IllegalArgumentException("Invalid Request Code");
+	}
+
+	/**
+	 * @param method the method string for the request code.
+	 * @return The ENUM element matching the method.
+	 * @throws IllegalArgumentException, if method is out of range.
+	 */
+	public static CoapRequestCode parse(String method) {
+		for (CoapRequestCode t : CoapRequestCode.values()) {
+			if (t.getMethod().equals(method))
+				return t;
+		}
+
+		throw new IllegalArgumentException("Invalid Request Method");
 	}
 }
