@@ -48,8 +48,8 @@ Only the Android platform is supported by now.
 ## Usage
 
 ### Accessing the plugin
-The plugin is automagically loaded into global scope by cordova.
-To access the plugin use the global *CCoap* object after the `deviceready` event.
+The plugin is automagically loaded into global scope by Cordova.
+To access the plugin use the global **CCoap** object after the `deviceready` event.
 
 ```js
 document.addEventListener("deviceready", () => {
@@ -59,12 +59,29 @@ document.addEventListener("deviceready", () => {
 
 ### Basic requests
 
+The plugin exposes the methods **get**, **post**, **put** and **delete** to perform basic 
+transactions easily. All methods require an URI string as parameter and methods 
+**post** and **put** have an optional payload parameter that can be of type string, 
+object or array. The payload Content-Format is set automatically based on the 
+parameter type, being *"text-plain"* if payload is a string, *"application/json"* if 
+payload is an object or *"octet-stream"* if payload is an array.
 
-## Examples
-#### GET
+Each method returns a promise that resolves to a **CCoapResponse** object on success
+or an error message when rejected.
+
+The **CCoapResponse** object contains the following fields:
+
+* **code**: response code from the server;
+* **payload**: data sent from the server as either string or array;
+* **options**: array of CCoapOption.
+
+#### GET example
+
+Function: `CCoap.get(uri: string) : Promise<CCoapResponse>`
+
 ```js
 document.addEventListener("deviceready", () => {
-    CCoap.get('coap://example.com/').then(res => {
+    CCoap.get('coap://example.com:5683/get?query=1').then(res => {
         console.log(res);
     }).catch(err => {
         console.log(err);
@@ -72,98 +89,94 @@ document.addEventListener("deviceready", () => {
 });
 ```
 
-#### POST
+#### POST example
 
+Function: `CCoap.post(uri: string, payload: string | Array) : Promise<CCoapResponse>`
 
-#### PUT
-
-#### DELETE
-
-#### OBSERVE
-
-#### Multicast 
-
-#### Binary files
-
-## Examples
-
-## Making a request
-
-Using promisses:
-
-```
-    declare var CCoap:any;
-
-    const req = {
-        id: 1,
-        uri: "coap://example.com:5683/api/test&param1=0&param2=testquery",
-        method: "post",
-        payload: "Hello World",
-        options: [
-            {name: "Content-Format", value: "text/plain; charset=utf-8"},
-            {name: "Accept", value: "text/plain; charset=utf-8"},
-            {name: "Accept", value: "application/json"}
-        ]
-    }
-
-    CCoap.request(req,
-        res => {
-            console.log(res.payload);
-        },
-        error => {
-            console.log(error);
-        }
-    );
+```js
+document.addEventListener("deviceready", () => {
+    CCoap.post('coap://example.com:5683/post?query=1', "Hello").then(res => {
+        console.log(res);
+    }).catch(err => {
+        console.log(err);
+    });
+});
 ```
 
-Using async/await:
+#### PUT example
 
+Function: `CCoap.put(uri: string, payload: string | Array) : Promise<CCoapResponse>`
 
-```
-    declare var CCoap:any;
-    
-    async function getRequest(){
-        const req = {uri: "coap://example.com:5683/test"};
-
-        try {
-            const res = await CCoap.request(req);
-            
-            console.log(res.code);
-            console.log(res.payload);
-        } catch (error){
-            console.log(error);
-        }
-    }
+```js
+document.addEventListener("deviceready", () => {
+    CCoap.put('coap://example.com:5683/put?query=1', "Hello").then(res => {
+        console.log(res);
+    }).catch(err => {
+        console.log(err);
+    });
+});
 ```
 
-## Discovering devices
+#### DELETE example
 
+Function: `CCoap.delete(uri: string) : Promise<CCoapResponse>`
+
+```js
+document.addEventListener("deviceready", () => {
+    CCoap.delete('coap://example.com:5683/delete?query=1').then(res => {
+        console.log(res);
+    }).catch(err => {
+        console.log(err);
+    });
+});
 ```
-    declare var CCoap:any;
 
-    async function discover (){
-        try {
-            const devices = await CCoap.discover(500);
-            console.log(devices);
-        } catch(error){
-            console.log(error);
-        }
-    } 
+### Discovering devices and services
+
+The plugin comes with a discover function, which does a server and resource discovery according to [RFC-7252](https://tools.ietf.org/html/rfc7252) Section 7, by sending a multicast request to  address 224.0.1.187 at port 5683 and path */.well-known/core*. A **timeout** parameter, in **milliseconds**, limits the amount of time the plugin keeps listening for new responses, if timeout is not specified, a default of 2000 ms is used.
+
+The discover function returns a promise and the discovered devices are returned in an array to the promise's resolve callback as a **CCoapDiscoveredDevice** object.
+  
+Each **CCoapDiscoveredDevice** object have the following properties:
+* **address: string** Device IPv4 address;
+* **port: number** Device port number;
+* **resources: string** Core Link Format string (check [RFC-6690](https://tools.ietf.org/html/rfc6690)).
+
+#### DISCOVER example
+
+Function: `CCoap.discover(timeout: integer): Promise<CCoapDiscoveredDevice[]>`
+
+```js
+document.addEventListener("deviceready", () => {
+    // Wait for 500ms
+    CCoap.discover(500).then(devices => {
+        console.log(devices);
+    }).catch(error => {
+        console.log(error);
+    });
+});
 ```
 
-# Limitations
+### Block transfer
+Methods *get*, *post*, *put*, *delete* and *request* handle block transfers
+automatically when the message body (payload) is greater than 1024 bytes, either
+during requests or responses, i.e. if the payload size in a post or put request is greater than 1024 bytes, the payload will be tranferred in chunks to the server through the [Block1](https://tools.ietf.org/html/rfc7959#section-2.5) option, 
+also, if the server sends a [Block2](https://tools.ietf.org/html/rfc7959#section-2.4)
+option, the payload inside a CCoapResponse will be the complete message body, 
+with all chunks reassembled.
 
-- iOS support not implemented yet;
+
+## Limitations
+
 - Coap server not implemented yet;
 - Observable is not yet implemented;
-- Block transfer not yet implemented;
 - CBOR content type is not supported;
 - DTLS not implemented yet.
 
-# License
+## License
 
 This code is released under the MIT license, for full disclosure check the [LICENCE](LICENSE) file.
 
-# Acknowledgements
+## Acknowledgements
 
 - Android support is based on [jCoAP](https://gitlab.amd.e-technik.uni-rostock.de/ws4d/jcoap);
