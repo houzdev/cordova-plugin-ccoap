@@ -2,7 +2,7 @@
  * @module CCoap
  * @author David Krepsky
  * @copyright Houz Automacao
- * @version 0.3.0
+ * @version 0.4.0
  */
 var exec = require('cordova/exec')
 
