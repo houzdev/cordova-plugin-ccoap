@@ -1,6 +1,6 @@
 {
   "_from": "git+https://github.com/houzdev/cordova-plugin-ccoap.git",
-  "_id": "cordova-plugin-ccoap@0.3.0",
+  "_id": "cordova-plugin-ccoap@0.4.0",
   "_inBundle": false,
   "_integrity": "",
   "_location": "/cordova-plugin-ccoap",
@@ -30,5 +30,5 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "version": "0.2.0"
+  "version": "0.4.0"
 }

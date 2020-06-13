@@ -31,6 +31,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.channels.Channel;
 import java.util.Random;
+import java.util.HashMap;
 
 import android.util.Log;
 
@@ -44,11 +45,7 @@ import android.util.Log;
  */
 public class CCoapClient implements CoapClient {
 
-    private JSONObject jreq = null;
-    private CallbackContext callback;
-    private URI uri;
-    private CoapRequest request = null;
-    private CoapClientChannel channel = null;
+    private HashMap<CoapClientChannel, CallbackContext> callbackMap = new HashMap<CoapClientChannel, CallbackContext>();
     private Random tokenGenerator = null;
 
     /**
@@ -62,20 +59,24 @@ public class CCoapClient implements CoapClient {
 
         Log.v("CCoap", "Request");
 
-        this.jreq = req;
-        this.callback = callbackContext;
+        URI uri = null;
+        CoapClientChannel channel = null;
+        CoapRequest request = null;
 
         try {
-            createURI();
-            createChannel();
-            createRequest();
-            appendOptions();
-            appendQuery();
-            appendPayload();
-            this.channel.sendMessage(this.request);
+            uri = createURI(req);
+            channel = createChannel(uri);
+            request = createRequest(uri, channel, req);
+            appendOptions(request, req);
+            appendQuery(request, uri);
+            appendPayload(request, channel, req);
+
+            callbackMap.put(channel, callbackContext);
+
+            channel.sendMessage(request);
         } catch (final CCoapException e) {
-            if (null != this.channel) {
-                this.channel.close();
+            if (null != channel) {
+                channel.close();
             }
 
             throw e;
@@ -87,12 +88,16 @@ public class CCoapClient implements CoapClient {
      * 
      * @throws CCoapException Thrown when the uri is missing in json request.
      */
-    private void createURI() throws CCoapException {
+    private URI createURI(JSONObject req) throws CCoapException {
+        URI uri;
+
         try {
-            this.uri = URI.create(this.jreq.getString("uri"));
+            uri = URI.create(req.getString("uri"));
         } catch (final JSONException e) {
             throw new CCoapException("URI is missing", CCoapError.INVALID_ARGUMENT, e);
         }
+
+        return uri;
     }
 
     /**
@@ -100,41 +105,44 @@ public class CCoapClient implements CoapClient {
      * 
      * @throws CCoapException Thrown at any error {@link CCoapException}.
      */
-    private void createChannel() throws CCoapException {
+    private CoapClientChannel createChannel(URI uri) throws CCoapException {
 
         final CoapChannelManager manager = BasicCoapChannelManager.getInstance();
 
         InetAddress addr;
 
         try {
-            addr = InetAddress.getByName(this.uri.getHost());
+            addr = InetAddress.getByName(uri.getHost());
         } catch (final UnknownHostException e) {
             throw new CCoapException("Invalid server address", CCoapError.DESTINATION_IS_UNREACHABLE, e);
         }
 
-        final int port = this.uri.getPort();
+        final int port = uri.getPort();
 
-        this.channel = manager.connect(this, addr, port);
+        CoapClientChannel channel;
 
-        this.channel.setMaxReceiveBlocksize(CoapBlockSize.BLOCK_1024);
-        this.channel.setMaxSendBlocksize(CoapBlockSize.BLOCK_1024);
+        channel = manager.connect(this, addr, port);
+        channel.setMaxReceiveBlocksize(CoapBlockSize.BLOCK_1024);
+        channel.setMaxSendBlocksize(CoapBlockSize.BLOCK_1024);
+
+        return channel;
     }
 
     /**
      * Create a {@link CoapRequest} object from the request information.
      */
-    private void createRequest() {
+    private CoapRequest createRequest(URI uri, CoapClientChannel channel, JSONObject req) {
 
-        String path = this.uri.getPath();
+        String path = uri.getPath();
 
         if (path == null || path.isEmpty())
             path = "/";
 
-        final CoapRequestCode code = CoapRequestCode.parse(this.jreq.optString("method", "get"));
+        final CoapRequestCode code = CoapRequestCode.parse(req.optString("method", "get"));
 
-        final boolean confirmable = this.jreq.optBoolean("confirmable", true);
+        final boolean confirmable = req.optBoolean("confirmable", true);
 
-        this.request = this.channel.createRequest(code, path, confirmable);
+        return channel.createRequest(code, path, confirmable);
     }
 
     /**
@@ -142,9 +150,9 @@ public class CCoapClient implements CoapClient {
      * 
      * @throws CCoapException Thrown when an invalid option is found.
      */
-    private void appendOptions() throws CCoapException {
+    private void appendOptions(CoapRequest request, JSONObject req) throws CCoapException {
 
-        final JSONArray options = this.jreq.optJSONArray("options");
+        final JSONArray options = req.optJSONArray("options");
 
         if (null == options)
             return;
@@ -156,19 +164,19 @@ public class CCoapClient implements CoapClient {
 
                 if (name.equals("Accept")) {
                     final String mimeType = option.getString("value");
-                    this.request.addAccept(CoapMediaType.parse(mimeType));
+                    request.addAccept(CoapMediaType.parse(mimeType));
                 } else if (name.equals("Content-Format")) {
                     final String mimeType = option.getString("value");
-                    this.request.setContentType(CoapMediaType.parse(mimeType));
+                    request.setContentType(CoapMediaType.parse(mimeType));
                 } else if (name.equals("ETag")) {
                     final byte[] value = CCoapUtils.jarray2barray(option.getJSONArray("value"));
-                    this.request.addETag(value);
+                    request.addETag(value);
                 } else if (name.equals("If-None-Match")) {
                     final boolean value = option.getBoolean("value");
-                    this.request.setIfNoneMatchOption(value);
+                    request.setIfNoneMatchOption(value);
                 } else if (name.equals("If-Match")) {
                     final byte[] value = CCoapUtils.jarray2barray(option.getJSONArray("value"));
-                    this.request.addIfMatchOption(value);
+                    request.addIfMatchOption(value);
                 } else {
                     throw new CCoapException("Unknown option", CCoapError.INVALID_ARGUMENT);
                 }
@@ -181,18 +189,18 @@ public class CCoapClient implements CoapClient {
     /**
      * Append the URI query to a {@link CoapRequest} object.
      */
-    private void appendQuery() {
+    private void appendQuery(CoapRequest request, URI uri) {
 
-        final String query = this.uri.getQuery();
+        final String query = uri.getQuery();
 
         if (null != query && !query.isEmpty()) {
-            this.request.setUriQuery(query);
+            request.setUriQuery(query);
         }
     }
 
-    private void appendPayload() throws CCoapException {
+    private void appendPayload(CoapRequest request, CoapClientChannel channel, JSONObject req) throws CCoapException {
 
-        final boolean hasPayload = this.jreq.has("payload");
+        final boolean hasPayload = req.has("payload");
         final boolean isPostPut = (request.getRequestCode() == CoapRequestCode.PUT)
                 || (request.getRequestCode() == CoapRequestCode.POST);
 
@@ -200,11 +208,11 @@ public class CCoapClient implements CoapClient {
             return;
         }
 
-        CoapMediaType type = this.request.getContentType();
+        CoapMediaType type = request.getContentType();
 
         byte[] raw;
 
-        final Object payload = this.jreq.opt("payload");
+        final Object payload = req.opt("payload");
 
         if (payload instanceof String) {
             raw = Encoder.StringToByte((String) payload);
@@ -224,11 +232,11 @@ public class CCoapClient implements CoapClient {
 
         final CoapData data = new CoapData(raw, type);
 
-        this.request.setPayload(data);
+        request.setPayload(data);
 
         if (raw.length > 1024) {
             Log.v("CCoap", "Init block1 transfer");
-            this.request = this.channel.addBlockContext(this.request);
+            request = channel.addBlockContext(request);
         }
     }
 
@@ -376,14 +384,18 @@ public class CCoapClient implements CoapClient {
             final boolean resetByServer) {
         Log.e("CCoap", "Connection Failed");
 
+        CallbackContext callback = callbackMap.get(channel);
+
         if (notReachable) {
-            this.callback.error(
+            callback.error(
                     CCoapUtils.getErrorObject(-1, CCoapError.DESTINATION_IS_UNREACHABLE, "Destination is unreachable"));
         } else {
-            this.callback.error(CCoapUtils.getErrorObject(-1, CCoapError.CONNECTION_FAILED, "Connection Failed"));
+            callback.error(CCoapUtils.getErrorObject(-1, CCoapError.CONNECTION_FAILED, "Connection Failed"));
         }
 
-        this.channel.close();
+        callbackMap.remove(channel);
+
+        channel.close();
     }
 
     /**
@@ -403,6 +415,8 @@ public class CCoapClient implements CoapClient {
     public void onResponse(final CoapClientChannel channel, final CoapResponse response) {
 
         Log.v("CCoap", "Received");
+
+        CallbackContext callback = callbackMap.get(channel);
 
         try {
             final JSONObject jres = new JSONObject();
@@ -446,11 +460,12 @@ public class CCoapClient implements CoapClient {
                 jres.put("options", options);
             }
 
-            this.callback.success(jres);
+            callback.success(jres);
         } catch (final JSONException e) {
-            this.callback.error(CCoapUtils.getErrorObject(-1, CCoapError.UNKNOWN, "Cannot create response JSON"));
+            callback.error(CCoapUtils.getErrorObject(-1, CCoapError.UNKNOWN, "Cannot create response JSON"));
         } finally {
-            this.channel.close();
+            callbackMap.remove(channel);
+            channel.close();
         }
     }
 
@@ -464,7 +479,10 @@ public class CCoapClient implements CoapClient {
     @Override
     public void onMCResponse(final CoapClientChannel channel, final CoapResponse response, final InetAddress srcAddress,
             final int srcPort) {
-        this.callback
-                .error(CCoapUtils.getErrorObject(-1, CCoapError.INVALID_TRANSPORT, "Received a multicast response"));
+
+        Log.v("CCoap", "Received Multicast");
+
+        callbackMap.remove(channel);
+        channel.close();
     }
 }

@@ -2,20 +2,20 @@
 
 interface CCoapOption {
     name: string;
-    value: string | number | Array;
+    value: string | number | Array<any>;
 }
 
 interface CCoapRequest {
     method?: string;
     uri: string;
-    payload?: string | Object | Array;
+    payload?: string | Object | Array<any>;
     options?: CCoapOption[];
     confirmable?: boolean;
 }
 
 interface CCoapResponse {
     code: number;
-    payload: string | Array;
+    payload: string | Array<any>;
     options: CCoapOption[];
 }
 

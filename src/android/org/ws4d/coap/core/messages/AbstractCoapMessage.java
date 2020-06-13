@@ -324,7 +324,6 @@ public abstract class AbstractCoapMessage implements CoapMessage {
 		CoapHeaderOption option = this.options.getOption(CoapHeaderOptionType.Block2);
 
 		if (option == null) {
-			Log.e("CCoap", "Option is null");
 			return null;
 		}
 

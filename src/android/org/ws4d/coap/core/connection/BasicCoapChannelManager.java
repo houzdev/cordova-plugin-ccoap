@@ -37,10 +37,18 @@ public class BasicCoapChannelManager implements CoapChannelManager {
 	// global message id
 	private int globalMessageId;
 	private static BasicCoapChannelManager instance;
-	private HashMap<Integer, SocketInformation> socketMap = new HashMap<Integer, SocketInformation>();
-	
+	private static CoapSocketHandler socketHandler;
+
+	// private HashMap<Integer, SocketInformation> socketMap = new HashMap<Integer, SocketInformation>();
+
 	private BasicCoapChannelManager() {
 		initRandom();
+
+		try {
+			socketHandler = new BasicCoapSocketHandler(this);
+		} catch (IOException e) {
+		}
+
 	}
 
 	public synchronized static CoapChannelManager getInstance() {
@@ -53,24 +61,25 @@ public class BasicCoapChannelManager implements CoapChannelManager {
 	@Override
 	public synchronized CoapServerChannel createServerChannel(CoapSocketHandler socketHandler, CoapMessage message,
 			InetAddress addr, int port) {
-		SocketInformation socketInfo = this.socketMap.get(socketHandler.getLocalPort());
+		// SocketInformation socketInfo = this.socketMap.get(socketHandler.getLocalPort());
 
-		if (socketInfo.getServerListener() == null) {
-			/* this is not a server socket */
-			throw new IllegalStateException("Invalid server socket");
-		}
+		// if (socketInfo.getServerListener() == null) {
+		// 	/* this is not a server socket */
+		// 	throw new IllegalStateException("Invalid server socket");
+		// }
 
-		if (!message.isRequest()) {
-			throw new IllegalStateException("Incomming message is not a request message");
-		}
+		// if (!message.isRequest()) {
+		// 	throw new IllegalStateException("Incomming message is not a request message");
+		// }
 
-		CoapServer server = socketInfo.getServerListener().onAccept((BasicCoapRequest) message);
-		if (server == null) {
-			/* Server rejected channel */
-			return null;
-		}
-		CoapServerChannel newChannel = new BasicCoapServerChannel(socketHandler, server, addr, port);
-		return newChannel;
+		// CoapServer server = socketInfo.getServerListener().onAccept((BasicCoapRequest) message);
+		// if (server == null) {
+		// 	/* Server rejected channel */
+		// 	return null;
+		// }
+		// CoapServerChannel newChannel = new BasicCoapServerChannel(socketHandler, server, addr, port);
+		// return newChannel;
+		return null;
 	}
 
 	@Override
@@ -91,39 +100,36 @@ public class BasicCoapChannelManager implements CoapChannelManager {
 
 	@Override
 	public void createServerListener(CoapServer listener, int localPort) {
-		if (!this.socketMap.containsKey(localPort)) {
-			try {
-				SocketInformation socketInfo = new SocketInformation(new BasicCoapSocketHandler(this, localPort),
-						listener);
-				this.socketMap.put(localPort, socketInfo);
-			} catch (IOException e) {
-			}
-		} else {
-			throw new IllegalStateException("address already in use");
-		}
+		// if (!this.socketMap.containsKey(localPort)) {
+		// 	try {
+		// 		SocketInformation socketInfo = new SocketInformation(new BasicCoapSocketHandler(this, localPort),
+		// 				listener);
+		// 		this.socketMap.put(localPort, socketInfo);
+		// 	} catch (IOException e) {
+		// 	}
+		// } else {
+		// 	throw new IllegalStateException("address already in use");
+		// }
 	}
 
 	public void removeServerListener(CoapServer listener, int localPort) {
-		if (this.socketMap.containsKey(localPort)) {
-			SocketInformation socketInfo = this.socketMap.get(localPort);
-			if (socketInfo.getServerListener().equals(listener)) {
-				socketInfo.getSocketHandler().close();
-				this.socketMap.remove(localPort);
-			}
-		}
+		// if (this.socketMap.containsKey(localPort)) {
+		// 	SocketInformation socketInfo = this.socketMap.get(localPort);
+		// 	if (socketInfo.getServerListener().equals(listener)) {
+		// 		socketInfo.getSocketHandler().close();
+		// 		this.socketMap.remove(localPort);
+		// 	}
+		// }
 	}
 
 	@Override
 	public CoapClientChannel connect(CoapClient client, InetAddress addr, int port) {
-		CoapSocketHandler socketHandler = null;
-		try {
-			socketHandler = new BasicCoapSocketHandler(this);
-			SocketInformation sockInfo = new SocketInformation(socketHandler, null);
-			this.socketMap.put(socketHandler.getLocalPort(), sockInfo);
-			return socketHandler.connect(client, addr, port);
-		} catch (IOException e) {
-		}
-		return null;
+
+		// SocketInformation sockInfo = new SocketInformation(socketHandler, null);
+
+		// this.socketMap.put(socketHandler.getLocalPort(), sockInfo);
+
+		return socketHandler.connect(client, addr, port);
 	}
 
 	@Override
@@ -131,22 +137,22 @@ public class BasicCoapChannelManager implements CoapChannelManager {
 		this.globalMessageId = globalMessageId;
 	}
 
-	private class SocketInformation {
-		private CoapSocketHandler handler = null;
-		private CoapServer listener = null;
+	// private class SocketInformation {
+	// 	private CoapSocketHandler handler = null;
+	// 	private CoapServer listener = null;
 
-		public SocketInformation(CoapSocketHandler socketHandler, CoapServer serverListener) {
-			super();
-			this.handler = socketHandler;
-			this.listener = serverListener;
-		}
+	// 	public SocketInformation(CoapSocketHandler socketHandler, CoapServer serverListener) {
+	// 		super();
+	// 		this.handler = socketHandler;
+	// 		this.listener = serverListener;
+	// 	}
 
-		public CoapSocketHandler getSocketHandler() {
-			return this.handler;
-		}
+	// 	public CoapSocketHandler getSocketHandler() {
+	// 		return this.handler;
+	// 	}
 
-		public CoapServer getServerListener() {
-			return this.listener;
-		}
-	}
+	// 	public CoapServer getServerListener() {
+	// 		return this.listener;
+	// 	}
+	// }
 }

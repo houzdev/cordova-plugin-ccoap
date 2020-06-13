@@ -35,6 +35,14 @@ public class CCoap extends CordovaPlugin {
      */
     private static final int DEFAULT_DISCOVER_TIMEOUT_MS = 2000;
 
+    private CCoapClient client;
+
+    @Override
+    public void initialize(CordovaInterface cordova, CordovaWebView webView) {
+        super.initialize(cordova, webView);
+        this.client = new CCoapClient();
+    }
+
     /**
      * Decode and execute native function.
      * 
@@ -76,8 +84,7 @@ public class CCoap extends CordovaPlugin {
         }
 
         try {
-            CCoapClient client = new CCoapClient();
-            client.request(req, callbackContext);
+            this.client.request(req, callbackContext);
         } catch (CCoapException e) {
             callbackContext.error(CCoapUtils.getErrorObject(e));
         }
